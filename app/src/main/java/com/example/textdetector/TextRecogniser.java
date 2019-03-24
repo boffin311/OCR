@@ -75,8 +75,8 @@ public class TextRecogniser {
         return result;
     }
 
-    public int getRotation(Activity activity, Context context) throws CameraAccessException {
-        int rotation = getRotationCompensation(getCameraId((CameraManager) activity.getSystemService(CAMERA_SERVICE)), activity, context);
+     int getRotation(Activity activity, Context context) throws CameraAccessException {
+        int rotation = getRotationCompensation("", activity, context);
 
 
          return rotation;
@@ -85,7 +85,10 @@ public class TextRecogniser {
         for(final String cameraId : cManager.getCameraIdList()){
             CameraCharacteristics characteristics = cManager.getCameraCharacteristics(cameraId);
             int cOrientation = characteristics.get(CameraCharacteristics.LENS_FACING);
-            if(cOrientation == CameraCharacteristics.LENS_FACING_BACK) return cameraId;
+            if(cOrientation == CameraCharacteristics.LENS_FACING_BACK)
+            {
+                Log.d("REALA", "getCameraId: "+cameraId);
+                return cameraId;}
         }
         return null;
     }

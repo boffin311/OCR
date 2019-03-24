@@ -3,8 +3,10 @@ package com.example.textdetector;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -24,6 +26,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.camerakit.CameraKit;
 import com.camerakit.CameraKitView;
@@ -32,6 +35,9 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.ml.vision.FirebaseVision;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcode;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetector;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
 import com.google.firebase.ml.vision.common.FirebaseVisionImage;
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata;
 import com.google.firebase.ml.vision.text.FirebaseVisionText;
@@ -45,12 +51,13 @@ public class MainActivity extends AppCompatActivity {
     Button btnCapture, btnPreview;
     Camera camera;
     ImageView image;
+    Button btnOCR,btnQrCode;
     CameraKitView cameraKitView;
     TextView tvData;
     SurfaceView obtImage;
     public static final int REQUEST_CAMERA = 12345;
     public static final String TAG = "main";
-
+   int chooseValue=1;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,18 +66,41 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.CAMERA}
                 , 123);
-        btnPreview = findViewById(R.id.btnPreview);
+      //  btnPreview = findViewById(R.id.btnQrCode);
         btnCapture = findViewById(R.id.btnCapture);
         tvData=findViewById(R.id.tvData);
+        btnOCR=findViewById(R.id.btnOCR);
+        btnQrCode=findViewById(R.id.btnQrCode);
         cameraKitView=findViewById(R.id.camera);
         obtImage = findViewById(R.id.obtImage);
-        btnPreview.setOnClickListener(new View.OnClickListener() {
+//        btnPreview.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//         //      startPreview();
+//            }
+//        });
+      //  image = findViewById(R.id.image);
+
+        btnQrCode.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-         //      startPreview();
+               chooseValue=1;
+               btnQrCode.setTextColor(Color.WHITE);
+               btnQrCode.setBackgroundTintList(ColorStateList.valueOf(Color.BLACK));
+               btnOCR.setBackgroundTintList(ColorStateList.valueOf(Color.GRAY));
             }
         });
-        image = findViewById(R.id.image);
+        btnOCR.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                chooseValue=2;
+                btnOCR.setBackgroundTintList(ColorStateList.valueOf(Color.BLACK));
+                btnQrCode.setBackgroundTintList(ColorStateList.valueOf(Color.GRAY));
+
+                btnOCR.setTextColor(Color.WHITE);
+
+            }
+        });
          cameraKitView.setPreviewListener(new CameraKitView.PreviewListener() {
              @Override
              public void onStart() {
@@ -136,13 +166,21 @@ public class MainActivity extends AppCompatActivity {
 //                      startPreview();
 //                    }
 //                });
+
+
                 cameraKitView.captureImage(new CameraKitView.ImageCallback() {
                     @Override
                     public void onImage(CameraKitView cameraKitView, byte[] bytes) {
                         try {
                             Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);
+
+                            if (chooseValue==2)
                             textRecogniserCallback(bitmap);
-                            image.setImageBitmap(bitmap);
+                            else if (chooseValue==1)
+                            {QrCodeScanner(bitmap);}
+                            else
+                                Toast.makeText(MainActivity.this, "Sorry Unable to connect found some error", Toast.LENGTH_SHORT).show();
+                         //   image.setImageBitmap(bitmap);
                         } catch (CameraAccessException e) {
                             e.printStackTrace();
                         }
@@ -195,8 +233,14 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void textRecogniserCallback(Bitmap bitmap) throws CameraAccessException {
+        FirebaseVisionImageMetadata metadata = new FirebaseVisionImageMetadata.Builder()
+                .setHeight(360)
+                .setWidth(480)
+                .setFormat(FirebaseVisionImageMetadata.IMAGE_FORMAT_NV21)
+                .build();
         FirebaseVisionTextRecognizer detector = FirebaseVision.getInstance().getOnDeviceTextRecognizer();
-        FirebaseVisionImage image=FirebaseVisionImage.fromBitmap(bitmap);
+        //FirebaseVisionImage image=new TextRecogniser().imageFromByteArray(bitmap,new TextRecogniser().getRotation(MainActivity.this,getBaseContext()));
+       FirebaseVisionImage image=FirebaseVisionImage.fromBitmap(bitmap);
       //  TextRecogniser textRecogniser = new TextRecogniser();
         //textRecogniser.imageFromByteArray(image, textRecogniser.getRotation(MainActivity.this, getBaseContext()))
         Task<FirebaseVisionText> task = detector.processImage(image).addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
@@ -204,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess(FirebaseVisionText firebaseVisionText) {
                 String result = firebaseVisionText.getText();
                 tvData.setText(result);
-                Log.d("REAL", "onSuccess0: " + firebaseVisionText.getText());
+                Log.d("REALA", "onSuccess0: " + firebaseVisionText.getText());
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
@@ -213,6 +257,34 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    public void QrCodeScanner( Bitmap bitmap){
+        FirebaseVisionBarcodeDetectorOptions options=new FirebaseVisionBarcodeDetectorOptions.Builder()
+                .setBarcodeFormats(FirebaseVisionBarcode.FORMAT_ALL_FORMATS)
+                .build();
+        FirebaseVisionImage firebaseVisionImage=FirebaseVisionImage.fromBitmap(bitmap);
+      //  image.setImageBitmap(bitmap);
+        FirebaseVisionBarcodeDetector detector=FirebaseVision.getInstance().getVisionBarcodeDetector(options);
+        detector.detectInImage(firebaseVisionImage).addOnSuccessListener(new OnSuccessListener<List<FirebaseVisionBarcode>>() {
+            @Override
+            public void onSuccess(List<FirebaseVisionBarcode> firebaseVisionBarcodes) {
+                if(firebaseVisionBarcodes.size()!=0)
+                { Log.d(TAG, "onSuccess: "+firebaseVisionBarcodes.size()+"   "+firebaseVisionBarcodes.get(0).getRawValue());
+                tvData.setText(firebaseVisionBarcodes.get(0).getRawValue());
+
+                }
+                else
+                    Log.d(TAG, "onSuccess: "+firebaseVisionBarcodes.size());
+
+            }
+        })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.d(TAG, "onFailure: "+"could Not get QRCode");
+                    }
+                });
     }
 
     @Override
@@ -244,4 +316,5 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         cameraKitView.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
+
 }
